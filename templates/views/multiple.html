@@ -1,0 +1,163 @@
+{% extends "layout/base.html" %}
+{% block title %}Learn{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/spectre.min.css')}}">
+{% endblock %}
+{% block content %}
+  <div id="app"></div>
+  <script src="{{ url_for('static', filename = 'js/hanzi-writer.min.js') }}"></script>
+  <script type="module">
+    import { html, Component, render } from 'https://unpkg.com/htm/preact/standalone.module.js';
+    const dataJSON = {{data|tojson}}
+    
+    class App extends Component
+    {
+      constructor(props)
+      {
+        super(props);
+        this.data = {
+          quizName: 'Multiple Choice Quiz',
+          quizData: dataJSON.content
+        }
+      }
+      render()
+      {
+        return html`<${Quiz} content=${this.data} />`;
+      }
+    }
+
+    class Quiz extends Component
+    {
+      constructor(props)
+      {
+        super(props);
+        this.state = {
+          currentIndex: 0,
+          score: 0,
+          wrongChoices: [],
+        };
+        this.choicePicked = this.choicePicked.bind(this);
+      }
+      
+      choicePicked(idx)
+      {
+        let quizLength = this.props.content.quizData.length;
+        if (this.state.currentIndex < quizLength)
+        {
+          let newScore = this.state.score;
+          let newIndex = this.state.currentIndex + 1;
+          let newWrongChoices = this.state.wrongChoices;
+          if (idx === this.props.content.quizData[this.state.currentIndex].correctAnswer) {
+            newScore += 1;
+          } else {
+            newWrongChoices.push(this.state.currentIndex + 1);
+          }
+          this.setState({ currentIndex: newIndex, score: newScore, wrongChoices: newWrongChoices });
+        }
+      }
+      
+      render(props, state)
+      {
+        let content = props.content;
+        let quizLength = props.content.quizData.length;
+        if (state.currentIndex < quizLength) {
+          let currentQuestion = props.content.quizData[state.currentIndex].question;
+          let currentChoices = props.content.quizData[state.currentIndex].choices;
+          return html`
+            <div class="container mt-2">
+              <${QuizHeading} length=${quizLength} quizName=${content.quizName} score=${state.score} index=${state.currentIndex} />
+              <${QuizBody} handleClick=${this.choicePicked} choices=${currentChoices} question=${currentQuestion} index=${state.currentIndex} />
+            </div>
+          `;
+        } else {
+          return html`
+            <${QuizResult} length=${quizLength} score=${state.score} wrongChoices=${state.wrongChoices} />
+          `;
+        }
+      }
+    }
+
+    class QuizResult extends Component
+    {
+      render(props)
+      {
+        return html`
+          <div class="container p-2">
+            <div class="hero bg-primary">
+              <div class="container" style="margin-left: 8px;">
+                <h3>Quiz Results</h3>
+                <p class="text-large lead">Final Score: ${props.score} / ${props.length}</p>
+                ${
+                  (props.wrongChoices.length > 0)
+                  ? html`<p class="text-large lead">The following were answered wrong: ${props.wrongChoices.join(', ')}</p>`
+                  : html`<p class="text-large lead">You got a perfect score! Hooray!</p>`
+                }
+                <a class="btn" href="/quiz">Finish Quiz</a>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    class QuizHeading extends Component
+    {
+      render(props)
+      {
+        return html`
+          <div class="container">
+            <h1>${props.quizName}</h2>
+            <h3>Score: ${props.score}</h2>
+            <ul class="step label p-2">
+              ${
+                [...new Array(props.length)].map(function(val, idx) {
+                  if (idx + 1 == props.index + 1) {
+                    return html`
+                      <li class="step-item active">
+                        <a href="#" class="tooltip" data-tooltip="Question ${idx + 1}">Q${idx + 1}</a>
+                      </li>
+                    `;
+                  } else {
+                    return html`
+                      <li class="step-item">
+                        <a href="#" class="tooltip" data-tooltip="Question ${idx + 1}">Q${idx + 1}</a>
+                      </li>
+                    `;
+                    }
+                })
+              }
+            </ul>
+          </div>
+        `;
+      }
+    }
+
+    class QuizBody extends Component
+    {
+      render(props)
+      {
+        return html`
+          <section class="container mt-2">
+            <div class="hero p-2 bg-primary">
+              <h2 class="p-1">Question ${props.index + 1}</h2>
+              <p class="lead p-1 text-large">${props.question}</p>
+              <div>
+                ${props.choices.map(function(val, idx) {
+                  return html`<button
+                    onclick=${() => props.handleClick(idx)}
+                    class="btn"
+                    style="display: inline-block; width: 50%;"
+                    >${val}</button>`;
+                })}
+              </div>
+            </div>
+          </section>
+        `;
+      }
+    }
+
+    const app = html`<${App} />`;
+    render(app, document.querySelector('#app'));
+  </script>
+{% endblock %}

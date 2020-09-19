@@ -1,0 +1,79 @@
+{% extends "layout/base.html" %}
+{% block title %}Learn{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/spectre.min.css')}}">
+{% endblock %}
+{% block content %}
+  <main class="container pt-2">
+    <div class="columns pt-2">
+      <div class="column col-3">
+        <ul class="nav p-2">
+          <li class="nav-item btn text-left">
+            <span class="lesson-marker" hidden>1</span>
+            <a href="#" class="p-2">Lesson One</a>
+          </li>
+          <li class="nav-item btn text-left">
+            <span class="lesson-marker" hidden>2</span>
+            <a href="#" class="p-2">Lesson Two</a>
+          </li>
+          <li class="nav-item btn text-left">
+            <span class="lesson-marker" hidden>3</span>
+            <a href="#" class="p-2">Lesson Three</a>
+          </li>
+          <li class="nav-item btn text-left">
+            <span class="lesson-marker" hidden>4</span>
+            <a href="#" class="p-2">Lesson Four</a>
+          </li>
+        </ul>
+      </div>
+      <div class="column col-9 pt-2">
+        <div class="hero bg-gray p-2">
+          <div id="lesson-content"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="{{ url_for('static', filename = 'js/zepto.min.js') }}"></script>
+  <script>
+    $.get('/api/lesson/overview/1', function (rep) {
+      $('#lesson-content').html(formatJSON(rep));
+    });
+    $('.nav-item').on('click', function () {
+      var id = $(this).find('.lesson-marker').eq(0).text()
+      $.ajax({
+        type: 'GET',
+        url: `/api/lesson/overview/${id}`,
+        dataType: 'json',
+        timeout: 300,
+        context: $('#lesson-content'),
+        beforeSend: function (xhr, settings) {
+          this.html(`<div class="loading loading-lg"></div>`);
+        },
+        success: function(rep) {
+          this.html(formatJSON(rep));
+        },
+        error: function(xhr, type) {
+          alert('Ajax error!')
+        }
+      });
+    });
+
+    function formatJSON(rep)
+    {
+      return `
+        <div class="p-2">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="p-1" style="display: inline-block;">${rep.title}</h3>
+            </div>
+            <div class="card-body">
+              <p>${rep.summary}</p>
+              <a href="learn/lesson/${rep.lessonId}" class="d-block btn btn-primary float-left">Start</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "layout/base.html" %}
+{% block title %}Home{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/spectre.min.css')}}">
+{% endblock %}
+{% block content %}
+    <main class="container mt-1">
+        <div class="hero bg-gray"><div style="margin: 0px auto;" id="char-headline"></div></div>
+        <div class="columns">
+            <div class="col-12 p-1">
+                <div class="columns p-2">
+                    <div class="col-12 p-1"><span class="h4">Featured Lessons</span></div>
+                </div>
+                <div class="columns">
+                    <div class="column col-md-12 col-6 pt-1">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title h5">Lesson One</div>
+                                <div class="card-subtitle text-gray">Basics Make Perfect</div>
+                            </div>
+                            <div class="card-body">Simplified Chinese was made for a reason, because it is so much easier to write. That, and that China had a high illiteracy rate during the 20th century... So, lets start from the basics!</div>
+                            <div class="card-footer"><a href="/learn/lesson/1" class="btn btn-primary">Discover</a></div>
+                        </div>
+                    </div>
+                    <div class="column col-md-12 col-6 pt-1">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title h5">Lesson Two</div>
+                                <div class="card-subtitle text-gray">Stroke Order Matters</div>
+                            </div>
+                            <div class="card-body">Every stroke matters in every character. So switching from traditionl to simplified means learning new stroke orders. Don't worry, there are no new strokes, just less of them!</div>
+                            <div class="card-footer"><a href="/learn/lesson/2" class="btn btn-primary">Discover</a></div>
+                        </div>
+                    </div>
+                    <div class="column col-md-12 col-6 pt-1">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title h5">Lesson Three</div>
+                                <div class="card-subtitle text-gray">Radicals For Life</div>
+                            </div>
+                            <div class="card-body">The radical of a character can tell you a lot about what character you are reading. It can also help you identify whether the character is in its simplified form!</div>
+                            <div class="card-footer"><a href="/learn/lesson/3" class="btn btn-primary">Discover</a></div>
+                        </div>
+                    </div>
+                    <div class="column col-md-12 col-6 pt-1">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title h5">Lesson Four</div>
+                                <div class="card-subtitle text-gray">Where and When</div>
+                            </div>
+                            <div class="card-body">Just like spoken Mandarin is context-based, so are chinese characters. Traditional or simplified? Figure out when and where to use them. As they say, context follows locality!</div>
+                            <div class="card-footer"><a href="/learn/lesson/4" class="btn btn-primary">Discover</a></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="{{ url_for('static', filename = 'js/hanzi-writer.min.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'js/zepto.min.js') }}"></script>
+    <script type="module">
+        import { html, render, Component } from 'https://unpkg.com/htm/preact/standalone.module.js';
+
+        class Character extends Component
+        {
+            constructor(props)
+            {
+                super(props);
+                this.state = { writer: '' , pinyin: ''};
+            }
+            
+            componentDidMount()
+            {
+                const self = this;
+                const props = this.props;
+                const writer = HanziWriter.create(`char-ani-${props.char}`, props.char, {
+                    width: 100,
+                    height: 100,
+                    padding: 5,
+                    showOutline: false,
+                    strokeAnimationSpeed: 2,
+                    delayBetweenStrokes: 50,
+                });
+                this.setState({
+                    writer: writer
+                });
+                $.get('/api/pinyin/' + props.char, function (rep) {
+                    self.setState({
+                        pinyin: rep.text
+                    });
+                });
+                writer.animateCharacter();
+            }
+            
+            render(props, state)
+            {
+                return html`
+                    <div class="popover popover-top">
+                        <div id="char-ani-${props.char}" onMouseLeave=${() => {state.writer.showCharacter()}} onMouseEnter=${() => {state.writer.animateCharacter()}}></div>
+                        <div class="popover-container" style="width: 100px;">
+                            <div class="card">
+                                <div class="card-header lead text-large text-center">
+                                    ${state.pinyin}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        const CharacterString = function(props)
+        {
+        return html`
+            ${
+                props.string.split('').map(function(val) {
+                    return html`
+                        <div style="display: inline-block;">
+                            <${Character} char=${val} />
+                        </div>
+                    `;
+                })
+            }
+        `;
+        }
+
+        render(html`<${CharacterString} string="学习简体中文" />`, document.querySelector('#char-headline'));
+    </script>
+{% endblock %}

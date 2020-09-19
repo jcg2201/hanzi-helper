@@ -1,0 +1,239 @@
+{% extends "layout/base.html" %}
+{% block title %}Learn{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/spectre.min.css')}}">
+{% endblock %}
+{% block content %}
+  <div id="app"></div>
+  <script src="{{ url_for('static', filename = 'js/hanzi-writer.min.js') }}"></script>
+  <script src="{{ url_for('static', filename = 'js/zepto.min.js') }}"></script>
+  <script type="module">
+    import { html, Component, render } from 'https://unpkg.com/htm/preact/standalone.module.js';
+    const data = {{data|tojson}}
+    const lessonId = data.id;
+    const lessonLength = data.length;
+    class Lesson extends Component
+    {
+      constructor(props)
+      {
+        super(props);
+        this.state = {
+          lessonLength: lessonLength,
+          currentSectionIndex: 1,
+          currentSectionContent: {
+            lead: '',
+            example: '',
+            explanation: '',
+          },
+        }
+        this.changeIndex = this.changeIndex.bind(this);
+      }
+
+      componentDidMount()
+      {
+        const self = this;
+        const props = this.props;
+        const state = this.state;
+        $.get(`/api/lesson/content/${props.lessonId}/${state.currentSectionIndex}`, function (rep) {
+          console.log(rep);
+          self.setState({
+            currentSectionContent: {
+              'lead': rep.lead,
+              'example': rep.example,
+              'explanation': rep.explanation
+            }
+          });
+        });
+      }
+      
+      changeIndex(idx)
+      {
+        const self = this;
+        const props = this.props;
+        const state = this.state;
+        $.get(`/api/lesson/content/${props.lessonId}/${idx}`, function (rep) {
+          console.log(rep);
+          self.setState({
+            currentSectionIndex: idx,
+            currentSectionContent: {
+              'lead': rep.lead,
+              'example': rep.example,
+              'explanation': rep.explanation
+            }
+          });
+        });
+      }
+      
+      render(props, state)
+      {
+        return html`
+          <div class="container mt-2 p-2">
+            <h2 style="padding: 8px 16px;" class="label bg-primary">Lesson ${props.lessonId}</h2>
+            <${LessonNavigation} length=${state.lessonLength} handleClick=${this.changeIndex} currentSectionIndex=${state.currentSectionIndex} />
+            <${LessonHeader} section=${state.currentSectionIndex} length=${state.lessonLength} />
+            <${LessonBody} content=${state.currentSectionContent} />
+          </div>
+        `;
+      }
+    }
+
+    const LessonBody = function (props)
+    {
+      return html`
+        <div class="container">
+          <section class="text-large">
+            <h4>Main Idea:</h4>
+            <p>${props.content.lead.split('.')[0]}</p>
+            <h4>A Deeper Dive:</h4>
+            <p>${props.content.lead.split('.').slice(1).join('. ')}</p>
+          </section>
+          <br />
+          <section class="text-center">
+            ${
+              props.content.example.split('').map(function(val, idx) {
+                if ((idx + 1) % 3 == 0) {
+                  return html`<${Character} char=${val}  /><br />`;
+                } else {
+                  return html`<${Character} char=${val}  />`;
+                }
+              })
+            }
+          </section>
+          <br />
+          <section class="text-large">
+            ${props.content.explanation}
+          </section>
+        </div>
+      `;
+    }
+
+    class Character extends Component
+    {
+      constructor(props)
+      {
+        super(props);
+        this.state = { writer: '' , pinyin: ''};
+      }
+
+      componentWillUpdate(prevProps, prevState)
+      {
+        if (prevProps.char !== this.props.char) {
+          prevState.writer.hideCharacter();
+          prevState.writer.hideOutline();
+          delete prevState.writer;
+        }
+      }
+
+      componentDidUpdate(prevProps, prevState)
+      {
+        if (prevProps.char !== this.props.char) {
+          const props = this.props;
+          const writer = HanziWriter.create('char-ani-' + props.char, props.char, {
+            width: 200,
+            height: 200,
+            padding: 5,
+            strokeAnimationSpeed: 1,
+            delayBetweenStrokes: 100,
+          });
+          const self = this;
+          $.get('/api/pinyin/' + props.char, function (rep) {
+            self.setState({
+              pinyin: rep.text,
+              writer: writer,
+            });
+          });
+        }
+      }
+          
+      componentDidMount()
+      {
+        const self = this;
+        const props = this.props;
+        const writer = HanziWriter.create(`char-ani-${props.char}`, props.char, {
+          width: 200,
+          height: 200,
+          padding: 5,
+          showOutline: false,
+          strokeAnimationSpeed: 2,
+          delayBetweenStrokes: 50,
+        });
+        this.setState({
+          writer: writer
+        });
+        $.get('/api/pinyin/' + props.char, function (rep) {
+          self.setState({
+            pinyin: rep.text
+          });
+        });
+      }
+          
+      render(props, state)
+      {
+        return html`
+            <div class="popover popover-top">
+                <${Sheet} sheetId="char-ani-${props.char}" writer=${state.writer} />
+                <div class="popover-container" style="width: 100px;">
+                    <div class="card">
+                        <div class="card-header lead text-large text-center">
+                            ${state.pinyin}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+      }
+    }
+
+    const Sheet = function (props)
+    {
+      return html`
+        <div class="mr-1">
+          <svg onMouseLeave=${() => {props.writer.showCharacter()}} onMouseEnter=${() => {props.writer.animateCharacter()}} style="border: 1px solid #DDD;" xmlns="http://www.w3.org/2000/svg" width="100" height="100" id=${props.sheetId}>
+            <line x1="0" y1="0" x2="200" y2="200" stroke="#DDD" />
+            <line x1="200" y1="0" x2="0" y2="200" stroke="#DDD" />
+            <line x1="100" y1="0" x2="100" y2="200" stroke="#DDD" />
+            <line x1="0" y1="100" x2="200" y2="100" stroke="#DDD" />
+          </svg>
+        </div>
+      `;
+    }
+
+    const LessonHeader = function (props)
+    {
+      return html`
+        <h3 style="padding: 8px 16px; width: 100%;" class="mt-2 label text-center">
+          ${
+            (props.section != props.length)
+            ? html`Section ${props.section}`
+            : html`<span style="display: inline-block; position: relative; left: 50px;">Section ${props.section}</span><a href="/quiz" class="btn btn-primary float-right">Try A Quiz</a>`
+          }
+        </h3>
+      `;
+    }
+
+    const LessonNavigation = function (props)
+    {
+      return html`
+        <ul class="tab tab-block text-large label p-1">
+          ${
+            [...new Array(props.length)].map(function(val, idx) {
+              return html`
+                <li class="tab-item">
+                  ${
+                    (props.currentSectionIndex != idx + 1)
+                    ? html`<a href="#" onclick=${() => props.handleClick(idx + 1)}>Part ${idx + 1}</a>`
+                    : html`<a href="#" class="active" onclick=${() => props.handleClick(idx + 1)}>Part ${idx + 1}</a>`
+                  }
+                </li>
+              `;
+            })
+          }
+        </ul>
+      `;
+    }
+
+    const app = html`<${Lesson} lessonId=${lessonId} />`;
+    render(app, document.querySelector('#app'));
+  </script>
+{% endblock %}

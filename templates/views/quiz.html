@@ -1,0 +1,84 @@
+{% extends "layout/base.html" %}
+{% block title %}Learn{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/spectre.min.css')}}">
+{% endblock %}
+{% block content %}
+  <main class="container p-2">
+    <div class="columns p-2">
+      <div class="column col-3">
+        <ul class="nav">
+          <li class="nav-item btn text-left">
+            <span class="quiz-marker" hidden>1 multiple</span>
+            <a href="#" class="p-2">Quiz One</a>
+          </li>
+          <li class="nav-item btn text-left">
+            <span class="quiz-marker" hidden>1 write</span>
+            <a href="#" class="p-2">Quiz Two</a>
+          </li>
+          <li class="nav-item btn text-left">
+            <span class="quiz-marker" hidden>2 multiple</span>
+            <a href="#" class="p-2">Quiz Three</a>
+          </li>
+          <li class="nav-item btn text-left">
+            <span class="quiz-marker" hidden>2 write</span>
+            <a href="#" class="p-2">Quiz Four</a>
+          </li>
+        </ul>
+      </div>
+      <div class="column col-9 p-2">
+        <div class="hero bg-gray p-2">
+          <div id="quiz-content"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="{{ url_for('static', filename = 'js/zepto.min.js') }}"></script>
+  <script>
+    $.get('/api/quiz/overview/multiple/1', function (rep) {
+      $('#quiz-content').html(formatJSON(rep));
+    });
+    $('.nav-item').on('click', function () {
+      var id = $(this).find('.quiz-marker').eq(0).text().split(' ')[0];
+      var type = $(this).find('.quiz-marker').eq(0).text().split(' ')[1];
+      $.ajax({
+        type: 'GET',
+        url: `/api/quiz/overview/${type}/${id}`,
+        dataType: 'json',
+        timeout: 300,
+        context: $('#quiz-content'),
+        beforeSend: function (xhr, settings) {
+          this.html(`<div class="loading loading-lg"></div>`);
+        },
+        success: function(rep) {
+          this.html(formatJSON(rep));
+        },
+        error: function(xhr, type) {
+          alert('Ajax error!')
+        }
+      });
+    });
+
+    function formatJSON(rep)
+    {
+      return `
+        <div class="p-2">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="p-1" style="display: inline-block;">${rep.title}</h3>
+            </div>
+            <div class="card-body">
+              <p>${rep.summary}</p>
+              ${
+                (rep.type == 'write')
+                ? `<a href="quiz/write/${rep.quizId}" class="btn btn-primary">Start</a>`
+                : `<a href="quiz/multiple/${rep.quizId}" class="btn btn-primary">Start</a>`
+              }
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+  {% endblock %}

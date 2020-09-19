@@ -1,0 +1,271 @@
+{% extends "layout/base.html" %}
+{% block title %}Learn{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/spectre.min.css')}}">
+{% endblock %}
+{% block content %}
+  <div id="app"></div>
+  <script src="{{ url_for('static', filename = 'js/hanzi-writer.min.js') }}"></script>
+  <script type="module">
+    import { html, Component, render } from 'https://unpkg.com/htm/preact/standalone.module.js';
+    const data = {{data|tojson}}
+    const charSet = data.content;
+    class CharacterQuiz extends Component
+    {
+      constructor(props)
+      {
+        super(props);
+        this.state = {
+          characterList: props.charSet.split(''),
+          currentCharacterIndex: 0,
+          quizCompleted: false,
+        };
+        this.changeIndex = this.changeIndex.bind(this);
+      }
+      
+      changeIndex()
+      {
+        if (this.state.currentCharacterIndex < this.state.characterList.length - 1) {
+          const newIndex = this.state.currentCharacterIndex + 1;
+          this.setState({
+            currentCharacterIndex: newIndex
+          });
+        } else if (this.state.currentCharacterIndex === this.state.characterList.length - 1) {
+          this.setState({
+            quizCompleted: true
+          });
+        }
+      }
+      
+      render(props, state)
+      {
+        const currentCharacter = state.characterList[state.currentCharacterIndex]
+        return html`
+          <div class="container mt-2">
+            <${CharacterQuizHeader} quizCompleted=${state.quizCompleted} currentCharacter=${currentCharacter} quizLength=${state.characterList.length} currentIndex=${state.currentCharacterIndex} />
+            <${CharacterQuizBody} quizCompleted=${state.quizCompleted} handleChange=${this.changeIndex} currentCharacter=${currentCharacter} />
+          </div>
+        `;
+      }
+    }
+
+    const CharacterQuizHeader = function (props)
+    {
+      return html`
+        <div class="container">
+          <h2>Written Quiz</h2>
+          <ul class="step label p-2">
+            ${
+              [...new Array(props.quizLength)].map(function(val, idx) {
+                if (idx + 1 == props.currentIndex + 1) {
+                  return html`
+                    <li class="step-item active">
+                      <a href="#" class="tooltip" data-tooltip="Question ${idx + 1}">Q${idx + 1}</a>
+                    </li>
+                  `;
+                } else {
+                  return html`
+                    <li class="step-item">
+                      <a href="#" class="tooltip" data-tooltip="Question ${idx + 1}">Q${idx + 1}</a>
+                    </li>
+                  `;
+                  }
+              })
+            }
+          </ul>
+          ${ !props.quizCompleted && html`<h4 class="p-2">Current Character: ${props.currentCharacter}</h4>` }
+        </div>
+      `;
+    }
+
+    const CharacterQuizBody = function (props)
+    {
+      if (!props.quizCompleted) {
+        return html`<${Character} handleChange=${props.handleChange} char=${props.currentCharacter} />`;
+      } else {
+        return html`
+          <div class="container mt-2">
+            <div class="bg-primary hero text-center text-large">
+              <p class="lead text-large">You've completed the quiz!</p>
+              <a style="width: 50%; margin: 0 auto;" href="/quiz" class="btn">Exit Quiz</a>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    class Character extends Component
+    {
+      constructor(props)
+      {
+        super(props);
+        this.state = {
+          writer: '',
+          strokeData: '',
+          summaryData: '',
+          madeMistake: '',
+        };
+      }
+      
+      componentDidMount()
+      {
+        const props = this.props;
+        const writer = HanziWriter.create('char-ani-' + props.char, props.char, {
+          width: 200,
+          height: 200,
+          padding: 5,
+          strokeAnimationSpeed: 1,
+          delayBetweenStrokes: 100,
+        });
+        this.setState({
+          writer: writer
+        });
+        const self = this;
+        writer.quiz({
+          onMistake: function(strokeData) {
+            self.setState({
+              strokeData: strokeData,
+              madeMistake: true,
+            });
+          },
+          onCorrectStroke: function(strokeData) {
+            self.setState({
+              strokeData: strokeData,
+              madeMistake: false,
+            });
+          },
+          onComplete: function(summaryData) {
+            self.setState({
+              summaryData: summaryData,
+              madeMistake: false,
+            });
+            writer.animateCharacter();
+          }
+        });
+      }
+      
+      componentWillUpdate(prevProps, prevState)
+      {
+        if (prevProps.char !== this.props.char) {
+          prevState.writer.hideCharacter();
+          prevState.writer.hideOutline();
+          delete prevState.writer;
+        }
+      }
+      
+      componentDidUpdate(prevProps, prevState)
+      {
+        if (prevProps.char !== this.props.char) {
+          this.setState({
+            writer: '',
+            strokeData: '',
+            summaryData: '',
+            madeMistake: '',
+          });
+          const props = this.props;
+          const writer = HanziWriter.create('char-ani-' + props.char, props.char, {
+            width: 200,
+            height: 200,
+            padding: 5,
+            strokeAnimationSpeed: 1,
+            delayBetweenStrokes: 100,
+          });
+          this.setState({
+            writer: writer
+          });
+          const self = this;
+          writer.quiz({
+            onMistake: function(strokeData) {
+              self.setState({
+                strokeData: strokeData,
+                madeMistake: true,
+              });
+            },
+            onCorrectStroke: function(strokeData) {
+              console.log('foo');
+              self.setState({
+                strokeData: strokeData,
+                madeMistake: false,
+              });
+            },
+            onComplete: function(summaryData) {
+              self.setState({
+                summaryData: summaryData,
+                madeMistake: false,
+              });
+              writer.animateCharacter();
+            }
+          });
+        }
+      }
+      
+      render(props, state)
+      {
+        return html`
+          <div class="container">
+            <div class="hero bg-primary p-2">
+              <div class="text-center">
+                <${Sheet} id=${"char-ani-" + props.char} />
+              </div>
+              <div class="text-center">
+                <${QuizStatus} handleChange=${props.handleChange} madeMistake=${state.madeMistake} strokeData=${state.strokeData} summaryData=${state.summaryData} />
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    const QuizStatus = function (props)
+    {
+      const summaryData = props.summaryData;
+      const strokeData = props.strokeData;
+      if (summaryData) {
+        return html`
+          <div class="container text-large mt-2">
+            <h4 style="padding: 8px 12px;" class="p-1">You did it! You finished drawing ${summaryData.character}</h4><br />
+            <h4 style="padding: 8px 12px;" class="p-1">You made <span class="">${summaryData.totalMistakes}</span> total mistakes on this character</h4><br />
+            <button class="btn" onClick=${props.handleChange}>Next Character</button>
+          </div>
+        `;
+      }
+      if (props.madeMistake) {
+        return html`
+          <div class="container text-large mt-2">
+            <p style="padding: 8px 12px;" class="label">Oh no! you made a mistake on stroke ${props.strokeData.strokeNum + 1 + 1}</p><br />
+            <p style="padding: 8px 12px;" class="label">You've made ${strokeData.mistakesOnStroke} mistakes on this stroke so far</p><br />
+            <p style="padding: 8px 12px;" class="label">You've made ${strokeData.totalMistakes} total mistakes on this character</p><br />
+            <p style="padding: 8px 12px;" class="label">There are ${strokeData.strokesRemaining} strokes remaining in this character</p><br />
+          </div>
+        `;
+      }
+      if (strokeData.strokeNum >= 0) {
+        return html`
+          <div class="container text-large mt-2">
+            <p style="padding: 8px 12px;" class="label">Yes!!! You got stroke ${strokeData.strokeNum + 1} correct!</p><br />
+            <p style="padding: 8px 12px;" class="label">You've made ${strokeData.mistakesOnStroke} mistakes on this stroke so far</p><br />
+            <p style="padding: 8px 12px;" class="label">You've made ${strokeData.totalMistakes} total mistakes on this character</p><br />
+            <p style="padding: 8px 12px;" class="label">There are ${strokeData.strokesRemaining} strokes remaining in this character</p><br />
+          </div>
+      `;
+      }
+      return html ``;
+    }
+
+    const Sheet = function (props)
+    {
+      return html`
+        <svg style="border: 1px solid #DDD; background-color: white;" xmlns="http://www.w3.org/2000/svg" width="100" height="100" id=${props.id}>
+          <line x1="0" y1="0" x2="200" y2="200" stroke="#DDD" />
+          <line x1="200" y1="0" x2="0" y2="200" stroke="#DDD" />
+          <line x1="100" y1="0" x2="100" y2="200" stroke="#DDD" />
+          <line x1="0" y1="100" x2="200" y2="100" stroke="#DDD" />
+        </svg>
+      `;
+    }
+    
+    const app = html`<${CharacterQuiz} charSet=${charSet} />`;
+    render(app, document.querySelector('#app'));
+  </script>
+{% endblock %}
